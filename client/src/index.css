@@ -1,0 +1,149 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply bg-[#0a0a0a] text-gray-100 font-sans antialiased;
+    min-height: 100vh;
+  }
+
+  #root {
+    min-height: 100vh;
+  }
+}
+
+@layer components {
+  .category-card {
+    @apply relative overflow-hidden rounded-xl cursor-pointer;
+    height: 200px;
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+  }
+
+  .category-card:hover {
+    transform: scale(1.02);
+    @apply shadow-2xl shadow-gold-500/20;
+  }
+
+  .category-card-overlay {
+    @apply absolute inset-0 flex items-center justify-center;
+    background: linear-gradient(135deg, rgba(0,0,0,0.6) 0%, rgba(0,0,0,0.3) 100%);
+  }
+
+  .category-card:hover .category-card-overlay {
+    background: linear-gradient(135deg, rgba(0,0,0,0.5) 0%, rgba(212,160,23,0.15) 100%);
+  }
+
+  .gold-border {
+    @apply border border-gold-500/30;
+  }
+
+  .gold-text {
+    @apply text-gold-500;
+  }
+
+  .menu-item-card {
+    @apply bg-gray-900 rounded-xl overflow-hidden border border-gray-800 hover:border-gold-500/40 transition-all duration-300;
+  }
+
+  .admin-sidebar-link {
+    @apply flex items-center gap-3 px-4 py-3 rounded-lg text-gray-400 hover:text-white hover:bg-gray-800 transition-all duration-200;
+  }
+
+  .admin-sidebar-link.active {
+    @apply text-white bg-gray-800 border-l-2 border-gold-500;
+  }
+
+  .btn-primary {
+    @apply bg-gold-500 hover:bg-gold-600 text-black font-semibold px-4 py-2 rounded-lg transition-colors duration-200;
+  }
+
+  .btn-secondary {
+    @apply bg-gray-700 hover:bg-gray-600 text-white font-medium px-4 py-2 rounded-lg transition-colors duration-200;
+  }
+
+  .btn-danger {
+    @apply bg-red-600 hover:bg-red-700 text-white font-medium px-4 py-2 rounded-lg transition-colors duration-200;
+  }
+
+  .form-input {
+    @apply w-full bg-gray-800 border border-gray-700 text-white rounded-lg px-3 py-2.5 focus:outline-none focus:border-gold-500 focus:ring-1 focus:ring-gold-500/50 transition-colors placeholder-gray-500;
+  }
+
+  .form-label {
+    @apply block text-sm font-medium text-gray-300 mb-1.5;
+  }
+
+  .admin-card {
+    @apply bg-gray-900 border border-gray-800 rounded-xl p-6;
+  }
+
+  .badge-featured {
+    @apply inline-flex items-center gap-1 bg-gold-500/20 text-gold-400 border border-gold-500/30 text-xs font-semibold px-2 py-0.5 rounded-full;
+  }
+
+  .price-tag {
+    @apply text-gold-400 font-bold;
+  }
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+/* Custom scrollbar for admin */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #111827;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #374151;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #4b5563;
+}
+
+/* Loading animation */
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.shimmer {
+  background: linear-gradient(90deg, #1f2937 25%, #374151 50%, #1f2937 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}
+
+/* Modal backdrop */
+.modal-backdrop {
+  @apply fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4;
+}
