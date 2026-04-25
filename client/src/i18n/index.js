@@ -222,12 +222,26 @@ const resources = {
   }
 };
 
+const supportedLngs = Object.keys(resources);
+const storedLng = localStorage.getItem('qrmenu_lang');
+const initialLng = supportedLngs.includes(storedLng) ? storedLng : 'tr';
+
+if (storedLng && storedLng !== initialLng) {
+  localStorage.setItem('qrmenu_lang', initialLng);
+}
+
 i18n
   .use(initReactI18next)
   .init({
     resources,
-    lng: localStorage.getItem('qrmenu_lang') || 'tr',
+    lng: initialLng,
     fallbackLng: 'tr',
+    supportedLngs,
+    nonExplicitSupportedLngs: true,
+    load: 'languageOnly',
+    defaultNS: 'translation',
+    ns: ['translation'],
+    returnEmptyString: false,
     interpolation: {
       escapeValue: false,
     },
