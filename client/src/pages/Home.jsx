@@ -39,7 +39,7 @@ export default function Home() {
       const [cats, sett, catalog] = await Promise.all([
         categoriesApi.getCategories(currentLang),
         settingsApi.getSettings(),
-        menuItemsApi.getPublicMenuCatalog(currentLang),
+        menuItemsApi.getMenuItems(null, currentLang),
       ]);
       setCategories(cats);
       setSettings(sett);

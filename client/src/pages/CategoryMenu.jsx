@@ -43,7 +43,7 @@ export default function CategoryMenu() {
         menuItemsApi.getMenuItems(categoryId, currentLang),
         categoriesApi.getCategories(currentLang),
         settingsApi.getSettings(),
-        menuItemsApi.getPublicMenuCatalog(currentLang),
+        menuItemsApi.getMenuItems(null, currentLang),
       ]);
 
       setMenuItems(items);
