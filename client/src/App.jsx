@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext.jsx';
 import { LanguageProvider } from './context/LanguageContext.jsx';
+import { settingsApi } from './api/index.js';
 
 // Public pages
 import Home from './pages/Home.jsx';
@@ -18,6 +19,23 @@ import LanguagesAdmin from './pages/admin/LanguagesAdmin.jsx';
 import SettingsAdmin from './pages/admin/SettingsAdmin.jsx';
 
 export default function App() {
+  useEffect(() => {
+    const applyTheme = (settings) => {
+      const root = document.documentElement;
+      root.style.setProperty('--theme-primary', settings.theme_primary_color || '#d4a017');
+      root.style.setProperty('--theme-background', settings.theme_background_color || '#0a0a0a');
+      root.style.setProperty('--theme-surface', settings.theme_surface_color || '#111827');
+      root.style.setProperty('--theme-text', settings.theme_text_color || '#f3f4f6');
+    };
+
+    settingsApi
+      .getSettings()
+      .then(applyTheme)
+      .catch(() => {
+        applyTheme({});
+      });
+  }, []);
+
   return (
     <BrowserRouter>
       <AuthProvider>

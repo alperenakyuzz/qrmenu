@@ -98,6 +98,10 @@ export const allergensApi = {
 
 // ---- MENU ITEMS ----
 export const menuItemsApi = {
+  /** Tüm aktif ürünler (kategori filtresi yok); public */
+  getPublicMenuCatalog: (lang) =>
+    api.get('/menu-items', { params: { lang } }).then((r) => r.data),
+
   getMenuItems: (categoryId, lang) =>
     api.get('/menu-items', { params: { category_id: categoryId, lang } }).then(r => r.data),
 

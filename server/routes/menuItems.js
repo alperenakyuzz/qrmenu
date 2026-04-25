@@ -72,12 +72,17 @@ router.get('/', (req, res) => {
         (SELECT mit.description FROM menu_item_translations mit WHERE mit.menu_item_id = mi.id AND mit.language_code = ?),
         (SELECT mit.description FROM menu_item_translations mit WHERE mit.menu_item_id = mi.id AND mit.language_code = (SELECT code FROM languages WHERE is_default = 1)),
         (SELECT mit.description FROM menu_item_translations mit WHERE mit.menu_item_id = mi.id LIMIT 1)
-      ) as description
+      ) as description,
+      COALESCE(
+        (SELECT ct.name FROM category_translations ct WHERE ct.category_id = mi.category_id AND ct.language_code = ?),
+        (SELECT ct.name FROM category_translations ct WHERE ct.category_id = mi.category_id AND ct.language_code = (SELECT code FROM languages WHERE is_default = 1)),
+        (SELECT ct.name FROM category_translations ct WHERE ct.category_id = mi.category_id LIMIT 1)
+      ) as category_name
     FROM menu_items mi
     WHERE mi.is_active = 1
   `;
 
-  const params = [langCode, langCode];
+  const params = [langCode, langCode, langCode];
 
   if (category_id) {
     query += ' AND mi.category_id = ?';
