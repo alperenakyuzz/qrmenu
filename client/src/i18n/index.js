@@ -230,9 +230,21 @@ if (storedLng && storedLng !== initialLng) {
   localStorage.setItem('qrmenu_lang', initialLng);
 }
 
+const resolveFallbackText = (key) => {
+  const lang = supportedLngs.includes(i18n.language) ? i18n.language : initialLng;
+  return key
+    .split('.')
+    .reduce((value, part) => (value && typeof value === 'object' ? value[part] : undefined), resources[lang]?.translation)
+    || key
+      .split('.')
+      .reduce((value, part) => (value && typeof value === 'object' ? value[part] : undefined), resources.tr.translation)
+    || key;
+};
+
 i18n
   .use(initReactI18next)
   .init({
+    initImmediate: false,
     resources,
     lng: initialLng,
     fallbackLng: 'tr',
@@ -242,6 +254,7 @@ i18n
     defaultNS: 'translation',
     ns: ['translation'],
     returnEmptyString: false,
+    parseMissingKeyHandler: resolveFallbackText,
     interpolation: {
       escapeValue: false,
     },
