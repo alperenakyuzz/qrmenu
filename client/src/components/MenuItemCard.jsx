@@ -45,7 +45,9 @@ export default function MenuItemCard({ item, currency, t, onOpenDetail, showCate
                 </svg>
               </span>
             )}
-            <h3 className="text-white font-semibold text-base leading-snug">{item.name}</h3>
+            <h3 className="min-w-0 text-white font-semibold text-base leading-snug break-words [overflow-wrap:anywhere]">
+              {item.name}
+            </h3>
           </div>
           <div className="flex-shrink-0 text-right">
             <span className="price-tag text-lg">

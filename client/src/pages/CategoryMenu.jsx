@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback, useMemo } from 'react';
+import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { menuItemsApi, categoriesApi, settingsApi } from '../api/index.js';
@@ -14,56 +14,85 @@ export default function CategoryMenu() {
   const navigate = useNavigate();
   const { currentLang } = useLanguage();
 
-  const [menuItems, setMenuItems] = useState([]);
   const [allCatalogItems, setAllCatalogItems] = useState([]);
   const [categories, setCategories] = useState([]);
-  const [categoryName, setCategoryName] = useState('');
+  const [activeCategoryId, setActiveCategoryId] = useState(null);
   const [categoryImgErrors, setCategoryImgErrors] = useState({});
   const [settings, setSettings] = useState({});
   const [loading, setLoading] = useState(true);
   const [detailItem, setDetailItem] = useState(null);
   const [itemSearch, setItemSearch] = useState('');
+  const headerRef = useRef(null);
+  const categorySectionRefs = useRef({});
+  const categoryTabsContainerRef = useRef(null);
+  const categoryTabRefs = useRef({});
+  const shouldScrollToRouteRef = useRef(true);
+  const isRouteScrollingRef = useRef(false);
 
   const showingGlobalSearch = !!itemSearch.trim();
 
   const displayItems = useMemo(() => {
     const q = itemSearch.trim().toLowerCase();
-    if (!q) return menuItems;
+    if (!q) return allCatalogItems;
     return allCatalogItems.filter(
       (item) =>
         (item.name || '').toLowerCase().includes(q) ||
         (item.description && String(item.description).toLowerCase().includes(q))
     );
-  }, [menuItems, allCatalogItems, itemSearch]);
+  }, [allCatalogItems, itemSearch]);
+
+  const sectionedCategories = useMemo(() => {
+    const itemsByCategory = new Map();
+
+    for (const item of allCatalogItems) {
+      if (!itemsByCategory.has(item.category_id)) {
+        itemsByCategory.set(item.category_id, []);
+      }
+      itemsByCategory.get(item.category_id).push(item);
+    }
+
+    return categories
+      .map((category) => ({
+        ...category,
+        items: itemsByCategory.get(category.id) || [],
+      }))
+      .filter((category) => category.items.length > 0);
+  }, [allCatalogItems, categories]);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const [items, cats, sett, catalog] = await Promise.all([
-        menuItemsApi.getMenuItems(categoryId, currentLang),
+      const [cats, sett, catalog] = await Promise.all([
         categoriesApi.getCategories(currentLang),
         settingsApi.getSettings(),
         menuItemsApi.getMenuItems(null, currentLang),
       ]);
 
-      setMenuItems(items);
       setAllCatalogItems(catalog);
       setCategories(cats);
       setCategoryImgErrors({});
       setSettings(sett);
 
-      const cat = cats.find((c) => c.id === parseInt(categoryId, 10));
-      if (cat) setCategoryName(cat.name);
+      setActiveCategoryId((prev) => prev || cats[0]?.id || null);
     } catch (err) {
       console.error('Failed to fetch menu data:', err);
     } finally {
       setLoading(false);
     }
-  }, [categoryId, currentLang]);
+  }, [currentLang]);
 
   useEffect(() => {
     fetchData();
   }, [fetchData]);
+
+  const scrollToCategory = useCallback((targetCategoryId, behavior = 'smooth') => {
+    const section = categorySectionRefs.current[targetCategoryId];
+    if (!section) return;
+
+    const headerHeight = headerRef.current?.getBoundingClientRect().height || 0;
+    const targetTop = window.scrollY + section.getBoundingClientRect().top - headerHeight - 12;
+    window.scrollTo({ top: Math.max(0, targetTop), behavior });
+  }, []);
 
   useEffect(() => {
     setDetailItem(null);
@@ -74,12 +103,122 @@ export default function CategoryMenu() {
     if (!itemSearch.trim()) setDetailItem(null);
   }, [itemSearch]);
 
+  useEffect(() => {
+    if (loading || showingGlobalSearch || sectionedCategories.length === 0) return;
+
+    const requestedCategoryId = parseInt(categoryId, 10);
+    const targetCategory =
+      sectionedCategories.find((category) => category.id === requestedCategoryId) ||
+      sectionedCategories[0];
+
+    setActiveCategoryId(targetCategory.id);
+
+    if (!shouldScrollToRouteRef.current) {
+      shouldScrollToRouteRef.current = true;
+      return;
+    }
+
+    isRouteScrollingRef.current = true;
+
+    const timer = window.setTimeout(() => {
+      scrollToCategory(targetCategory.id, 'auto');
+      window.setTimeout(() => {
+        isRouteScrollingRef.current = false;
+      }, 100);
+    }, 0);
+
+    return () => {
+      window.clearTimeout(timer);
+      isRouteScrollingRef.current = false;
+    };
+  }, [categoryId, loading, scrollToCategory, sectionedCategories, showingGlobalSearch]);
+
+  useEffect(() => {
+    if (loading || showingGlobalSearch || sectionedCategories.length === 0) return undefined;
+
+    const updateActiveCategory = () => {
+      if (isRouteScrollingRef.current) return;
+
+      const headerBottom = headerRef.current?.getBoundingClientRect().bottom || 0;
+      const activationOffset = headerBottom + 16;
+      let nextActiveId = sectionedCategories[0].id;
+
+      for (const category of sectionedCategories) {
+        const section = categorySectionRefs.current[category.id];
+        if (!section) continue;
+
+        if (section.getBoundingClientRect().top <= activationOffset) {
+          nextActiveId = category.id;
+        } else {
+          break;
+        }
+      }
+
+      setActiveCategoryId((prev) => (prev === nextActiveId ? prev : nextActiveId));
+
+      if (nextActiveId !== parseInt(categoryId, 10)) {
+        shouldScrollToRouteRef.current = false;
+        navigate(`/menu/${nextActiveId}`, { replace: true });
+      }
+    };
+
+    updateActiveCategory();
+    window.addEventListener('scroll', updateActiveCategory, { passive: true });
+    window.addEventListener('resize', updateActiveCategory);
+
+    return () => {
+      window.removeEventListener('scroll', updateActiveCategory);
+      window.removeEventListener('resize', updateActiveCategory);
+    };
+  }, [categoryId, loading, navigate, sectionedCategories, showingGlobalSearch]);
+
+  useEffect(() => {
+    if (!activeCategoryId || showingGlobalSearch) return undefined;
+
+    const frame = window.requestAnimationFrame(() => {
+      const container = categoryTabsContainerRef.current;
+      const activeTab = categoryTabRefs.current[activeCategoryId];
+      if (!container || !activeTab) return;
+
+      const containerRect = container.getBoundingClientRect();
+      const activeTabRect = activeTab.getBoundingClientRect();
+      const centeredLeft =
+        container.scrollLeft +
+        activeTabRect.left -
+        containerRect.left -
+        (container.clientWidth - activeTabRect.width) / 2;
+
+      container.scrollTo({
+        left: Math.max(0, Math.min(centeredLeft, container.scrollWidth - container.clientWidth)),
+        behavior: 'smooth',
+      });
+    });
+
+    return () => window.cancelAnimationFrame(frame);
+  }, [activeCategoryId, sectionedCategories.length, showingGlobalSearch]);
+
   const currency = settings.currency || '₺';
-  const currentCategoryId = parseInt(categoryId, 10);
+  const currentCategoryId = activeCategoryId || parseInt(categoryId, 10);
+  const activeCategory = categories.find((cat) => cat.id === currentCategoryId);
+
+  const handleCategoryClick = (targetCategoryId) => {
+    shouldScrollToRouteRef.current = false;
+    isRouteScrollingRef.current = true;
+    setItemSearch('');
+    setActiveCategoryId(targetCategoryId);
+    navigate(`/menu/${targetCategoryId}`);
+    scrollToCategory(targetCategoryId);
+    window.setTimeout(() => {
+      isRouteScrollingRef.current = false;
+    }, 500);
+  };
 
   return (
     <div className="min-h-screen bg-[#0a0a0a]">
-      <header className="sticky top-0 z-40 bg-[#0a0a0a]/95 backdrop-blur-md border-b border-gray-800/50">
+      <header
+        ref={headerRef}
+        className="sticky top-0 z-40 bg-[#0a0a0a]/95 backdrop-blur-md border-b border-gray-800/50"
+      >
         <div className="max-w-2xl mx-auto px-4 py-3 space-y-3">
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-3 min-w-0">
@@ -97,7 +236,7 @@ export default function CategoryMenu() {
                 <img src={settings.logo} alt="Logo" className="h-8 w-auto object-contain" />
               ) : (
                 <span className="text-white font-bold text-base truncate">
-                  {categoryName || settings.company_name || 'QRMenu'}
+                  {activeCategory?.name || settings.company_name || 'QRMenu'}
                 </span>
               )}
             </div>
@@ -118,21 +257,22 @@ export default function CategoryMenu() {
               className="w-full rounded-lg bg-gray-900/80 border border-gray-700 text-white text-sm pl-10 pr-3 py-2.5 placeholder-gray-500 focus:outline-none focus:border-gold-500/50 focus:ring-1 focus:ring-gold-500/30 transition-colors"
             />
           </div>
-        </div>
-      </header>
-
-      <div className="max-w-2xl mx-auto px-4 pt-6 pb-2">
-        {categories.length > 1 && !showingGlobalSearch && (
-          <div className="mb-4">
-            <div className="flex items-center gap-2 overflow-x-auto pb-1 snap-x snap-mandatory scrollbar-hide">
-              {categories.map((cat) => {
+          {sectionedCategories.length > 1 && !showingGlobalSearch && (
+            <div
+              ref={categoryTabsContainerRef}
+              className="flex items-center gap-2 overflow-x-auto pb-1 snap-x snap-mandatory scrollbar-hide"
+            >
+              {sectionedCategories.map((cat) => {
                 const isActive = cat.id === currentCategoryId;
                 const hasCategoryImage = cat.image && !categoryImgErrors[cat.id];
                 return (
                   <button
                     key={cat.id}
+                    ref={(node) => {
+                      categoryTabRefs.current[cat.id] = node;
+                    }}
                     type="button"
-                    onClick={() => navigate(`/menu/${cat.id}`)}
+                    onClick={() => handleCategoryClick(cat.id)}
                     className={`px-2.5 py-2 rounded-lg text-sm border transition-all inline-flex items-center gap-2 min-w-max snap-start ${
                       isActive
                         ? 'border-gold-500/70 text-gold-400 bg-gold-500/10'
@@ -156,21 +296,21 @@ export default function CategoryMenu() {
                 );
               })}
             </div>
-          </div>
-        )}
+          )}
+        </div>
+      </header>
 
-        <div className="flex items-center gap-3 mb-6">
-          <div className="w-1 h-8 bg-gold-500 rounded-full" />
-          <div>
-            <h1 className="text-2xl font-bold text-white">
-              {showingGlobalSearch ? t('public.searchResultsTitle') : categoryName}
-            </h1>
-            {showingGlobalSearch && (
+      {showingGlobalSearch && (
+        <div className="max-w-2xl mx-auto px-4 pt-6 pb-2">
+          <div className="flex items-center gap-3 mb-6">
+            <div className="w-1 h-8 bg-gold-500 rounded-full" />
+            <div>
+              <h1 className="text-2xl font-bold text-white">{t('public.searchResultsTitle')}</h1>
               <p className="text-gray-500 text-sm mt-1">{t('public.searchGlobalHint')}</p>
-            )}
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
       <div className="max-w-2xl mx-auto px-4 pb-8">
         {loading ? (
@@ -178,7 +318,7 @@ export default function CategoryMenu() {
             <LoadingSpinner size="lg" />
             <p className="text-gray-500 text-sm">{t('public.loading')}</p>
           </div>
-        ) : menuItems.length === 0 && !showingGlobalSearch ? (
+        ) : sectionedCategories.length === 0 && !showingGlobalSearch ? (
           <div className="text-center py-20">
             <div className="w-16 h-16 rounded-full bg-gray-900 flex items-center justify-center mx-auto mb-4">
               <svg className="w-8 h-8 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -191,7 +331,7 @@ export default function CategoryMenu() {
           <div className="text-center py-16">
             <p className="text-gray-500 text-sm">{t('public.noSearchResults')}</p>
           </div>
-        ) : (
+        ) : showingGlobalSearch ? (
           <div className="flex flex-col gap-4">
             {displayItems.map((item) => (
               <MenuItemCard
@@ -200,8 +340,36 @@ export default function CategoryMenu() {
                 currency={currency}
                 t={t}
                 onOpenDetail={setDetailItem}
-                showCategoryLabel={showingGlobalSearch}
+                showCategoryLabel
               />
+            ))}
+          </div>
+        ) : (
+          <div className="flex flex-col gap-8">
+            {sectionedCategories.map((category) => (
+              <section
+                key={category.id}
+                ref={(node) => {
+                  categorySectionRefs.current[category.id] = node;
+                }}
+                className="scroll-mt-44"
+              >
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="w-1 h-7 bg-gold-500 rounded-full" />
+                  <h2 className="text-xl font-bold text-white">{category.name}</h2>
+                </div>
+                <div className="flex flex-col gap-4">
+                  {category.items.map((item) => (
+                    <MenuItemCard
+                      key={item.id}
+                      item={item}
+                      currency={currency}
+                      t={t}
+                      onOpenDetail={setDetailItem}
+                    />
+                  ))}
+                </div>
+              </section>
             ))}
           </div>
         )}
